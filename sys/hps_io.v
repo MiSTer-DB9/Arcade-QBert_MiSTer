@@ -48,6 +48,7 @@ module hps_io #(parameter STRLEN=0, PS2DIV=0, WIDE=0, VDNUM=1, PS2WE=0)
 	output reg [15:0] joystick_analog_3,
 	output reg [15:0] joystick_analog_4,
 	output reg [15:0] joystick_analog_5,
+	input      [15:0] joy_raw,
 
 	// paddle 0..255
 	output reg  [7:0] paddle_0,
@@ -311,7 +312,10 @@ always@(posedge clk_sys) begin : uio_block
 			if(io_din == 5) ps2_key_raw <= 0;
 		end else begin
 
-			case(cmd)
+			casex(cmd)
+				 // Reading user_io raw joy
+				'h0f: io_dout <= joy_raw;
+
 				// buttons and switches
 				'h01: cfg <= io_din;
 				'h02: if(byte_cnt==1) joystick_0[15:0] <= io_din; else joystick_0[31:16] <= io_din;
