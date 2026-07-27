@@ -26,7 +26,7 @@ module emu
 	input         RESET,
 
 	//Must be passed to hps_io module
-	inout  [48:0] HPS_BUS,
+	inout  [45:0] HPS_BUS,
 
 	//Base video clock. Usually equals to CLK_SYS.
 	output        CLK_VIDEO,
@@ -298,6 +298,7 @@ localparam CONF_STR = {
   "O6,Test mode,Off,On;",
   "O7,Original column bug,Off,On;",
   "OA,Diagonal joystick,Off,On;",
+  "OE,Pause,Off,On;",
   "OCD,Trackball speed,25%,50%,100%;",
   "-;",
     // [MiSTer-DB9-Pro BEGIN] - Saturn-first joy_type (canonical bit notation)
@@ -308,7 +309,7 @@ localparam CONF_STR = {
   "DIP;",
   "-;",
   "R0,Reset and close OSD;",
-  "J1,Service Select,Start 1P,Start 2P,Coin;",
+  "J1,Service Select,Start 1P,Start 2P,Coin,Pause;",
 	"jn,A,Start,Select,R;",
 	"jp,B,Start,,Select;",
   "V,v",`BUILD_DATE
@@ -322,6 +323,8 @@ wire  [1:0] buttons;
 wire [127:0] status;
 // [MiSTer-DB9 END]
 wire [10:0] ps2_key;
+wire pause_osd = status[14];
+wire pause = pause_osd | pause_toggle;
 
 wire        ioctl_wr;
 wire [24:0] ioctl_addr;
@@ -333,6 +336,8 @@ wire        ioctl_wait;
 wire [15:0] joystick_0_USB;
 wire [15:0] joystick_1_USB;
 wire [15:0] joystick_analog_0;
+reg pause_toggle;
+reg pause_btn_last;
 
 wire [8:0] spinner_0;
 wire [24:0] ps2_mouse;
@@ -412,6 +417,8 @@ always @(posedge clk_sys) begin
   else cpu_clk <= 1'b0;
 end
 
+wire cpu_clk_pause = pause ? 1'b0 : cpu_clk;
+
 // derive sound clock from clk_sys
 reg [5:0] cnt2;
 reg sound_clk;
@@ -436,6 +443,19 @@ always @(posedge clk_10)
 
 
 wire reset = RESET | status[0] | buttons[1];
+
+always @(posedge clk_sys) begin
+  pause_btn_last <= joystick_0[8];
+
+  if(reset) begin
+    pause_toggle <= 1'b0;
+  end
+  else begin
+    // Rising edge of Pause button
+    if(joystick_0[8] && !pause_btn_last)
+      pause_toggle <= ~pause_toggle;
+  end
+end
 
 //////////////////////////////////////////////////////////////////
 
@@ -724,7 +744,7 @@ mylstar_board mylstar_board
   .CLK5(clk_5),
 
   .CPU_CORE_CLK(core_clk),
-  .CPU_CLK(cpu_clk),
+  .CPU_CLK(cpu_clk_pause),
 
   .red(red),
   .green(green),
